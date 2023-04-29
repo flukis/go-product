@@ -5,10 +5,13 @@ import (
 	"time"
 
 	"github.com/flukis/go-skulatir/pkg/entities"
+	"github.com/google/uuid"
 )
 
 type ProductUsecase interface {
 	Store(context.Context, StoreProductParams) (entities.Product, error)
+	Get(context.Context, uuid.UUID) (entities.Product, error)
+	Fetch(context.Context, string, int) ([]entities.Product, string, error)
 }
 type productUsecase struct {
 	productRepo ProductRepository
@@ -37,5 +40,19 @@ func (a *productUsecase) Store(c context.Context, arg StoreProductParams) (res e
 	}
 
 	res, err = a.productRepo.GetById(ctx, id)
+	return
+}
+
+func (a *productUsecase) Get(c context.Context, id uuid.UUID) (res entities.Product, err error) {
+	ctx, cancel := context.WithTimeout(c, a.ctxTimeout)
+	defer cancel()
+	res, err = a.productRepo.GetById(ctx, id)
+	return
+}
+
+func (a *productUsecase) Fetch(c context.Context, cursor string, limit int) (res []entities.Product, nextCursor string, err error) {
+	ctx, cancel := context.WithTimeout(c, a.ctxTimeout)
+	defer cancel()
+	res, nextCursor, err = a.productRepo.Fetch(ctx, cursor, limit)
 	return
 }

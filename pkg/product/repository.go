@@ -2,8 +2,10 @@ package product
 
 import (
 	"context"
+	"database/sql"
 
 	"github.com/flukis/go-skulatir/pkg/entities"
+	"github.com/flukis/go-skulatir/utils/helpers"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 )
@@ -11,6 +13,7 @@ import (
 type ProductRepository interface {
 	Store(context.Context, StoreProductParams) (uuid.UUID, error)
 	GetBySKU(context.Context, string) (entities.Product, error)
+	Fetch(context.Context, string, int) ([]entities.Product, string, error)
 	GetById(context.Context, uuid.UUID) (entities.Product, error)
 }
 
@@ -59,13 +62,39 @@ func (p *psqlProductRepository) GetBySKU(ctx context.Context, sku string) (res e
 		SELECT id, name, sku, description, price, stock, images, created_at, updated_at FROM products WHERE sku = $1 LIMIT 1
 	`
 	err = p.dbconn.GetContext(ctx, &res, queryString, sku)
+	if err == sql.ErrNoRows {
+		err = entities.ErrNotFound
+	}
 	return
 }
 
 func (p *psqlProductRepository) GetById(ctx context.Context, id uuid.UUID) (res entities.Product, err error) {
 	queryString := `
-	SELECT id, name, sku, description, price, stock, images, created_at, updated_at FROM products WHERE id = $1 LIMIT 1
+		SELECT id, name, sku, description, price, stock, images, created_at, updated_at FROM products WHERE id = $1 LIMIT 1
 	`
 	err = p.dbconn.GetContext(ctx, &res, queryString, id)
+	if err == sql.ErrNoRows {
+		err = entities.ErrNotFound
+	}
+	return
+}
+
+func (p *psqlProductRepository) Fetch(ctx context.Context, cursor string, num int) (res []entities.Product, nextCursor string, err error) {
+	queryString := `
+		SELECT id, name, sku, description, price, stock, images, created_at, updated_at FROM products WHERE created_at > $1 ORDER BY created_at LIMIT $2
+	`
+	decodedCursor, err := helpers.DecodeCursor(cursor)
+	if err != nil && cursor != "" {
+		return res, "", entities.ErrBadParamInput
+	}
+	err = p.dbconn.SelectContext(ctx, &res, queryString, decodedCursor, num)
+	if err == sql.ErrNoRows {
+		err = entities.ErrNotFound
+	}
+
+	if len(res) == int(num) {
+		nextCursor = helpers.EncodeCursor(res[len(res)-1].CreatedAt)
+	}
+
 	return
 }
