@@ -22,6 +22,7 @@ func NewProductHttpHandler(f *fiber.App, us product.ProductUsecase) {
 	f.Get("/product/:id", handler.GetProduct)
 	f.Get("/products", handler.FetchProduct)
 	f.Put("/product", handler.UpdateProduct)
+	f.Delete("/product/:id", handler.DeleteProduct)
 }
 
 func (p *ProductHttpHandler) CreateProduct(c *fiber.Ctx) error {
@@ -148,4 +149,19 @@ func (p *ProductHttpHandler) UpdateProduct(c *fiber.Ctx) error {
 		return c.Status(http.StatusInternalServerError).JSON(presenter.ProductErrorResponse(err))
 	}
 	return c.Status(http.StatusOK).JSON(presenter.ProductSuccessResponse(&res))
+}
+
+func (p *ProductHttpHandler) DeleteProduct(c *fiber.Ctx) error {
+	id := c.Params("id")
+
+	uid, err := uuid.Parse(id)
+	if err != nil {
+		return c.Status(http.StatusBadRequest).JSON(presenter.ProductErrorResponse(err))
+	}
+
+	err = p.ProductUseCase.Delete(c.Context(), uid)
+	if err != nil {
+		return c.Status(http.StatusInternalServerError).JSON(presenter.ProductErrorResponse(err))
+	}
+	return c.Status(http.StatusOK).JSON(presenter.ProductSuccessResponse(nil))
 }

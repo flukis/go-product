@@ -16,6 +16,7 @@ type ProductRepository interface {
 	Fetch(context.Context, string, int) ([]entities.Product, string, error)
 	GetById(context.Context, uuid.UUID) (entities.Product, error)
 	Update(context.Context, *entities.Product) (entities.Product, error)
+	Delete(context.Context, uuid.UUID) error
 }
 
 type psqlProductRepository struct {
@@ -137,5 +138,22 @@ func (p *psqlProductRepository) Update(ctx context.Context, arg *entities.Produc
 		&res.CreatedAt,
 		&res.UpdatedAt,
 	)
+	return
+}
+
+func (p *psqlProductRepository) Delete(ctx context.Context, id uuid.UUID) (err error) {
+	queryString := `
+		DELETE FROM products
+		WHERE id = $1
+	`
+	res, err := p.dbconn.ExecContext(ctx, queryString, id)
+	if err != nil {
+		return
+	}
+	affected, err := res.RowsAffected()
+	if affected != 1 {
+		return entities.ErrInternalServerError
+	}
+
 	return
 }

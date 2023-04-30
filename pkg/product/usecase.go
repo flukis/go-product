@@ -11,6 +11,7 @@ import (
 type ProductUsecase interface {
 	Store(context.Context, StoreProductParams) (entities.Product, error)
 	Get(context.Context, uuid.UUID) (entities.Product, error)
+	Delete(context.Context, uuid.UUID) error
 	GetBySKU(context.Context, string) (entities.Product, error)
 	Fetch(context.Context, string, int) ([]entities.Product, string, error)
 	Update(context.Context, *entities.Product) (entities.Product, error)
@@ -72,5 +73,13 @@ func (a *productUsecase) Update(c context.Context, arg *entities.Product) (res e
 
 	arg.UpdatedAt = time.Now()
 	res, err = a.productRepo.Update(ctx, arg)
+	return
+}
+
+func (a *productUsecase) Delete(c context.Context, id uuid.UUID) (err error) {
+	ctx, cancel := context.WithTimeout(c, a.ctxTimeout)
+	defer cancel()
+
+	err = a.productRepo.Delete(ctx, id)
 	return
 }
