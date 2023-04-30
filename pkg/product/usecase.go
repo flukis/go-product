@@ -11,7 +11,9 @@ import (
 type ProductUsecase interface {
 	Store(context.Context, StoreProductParams) (entities.Product, error)
 	Get(context.Context, uuid.UUID) (entities.Product, error)
+	GetBySKU(context.Context, string) (entities.Product, error)
 	Fetch(context.Context, string, int) ([]entities.Product, string, error)
+	Update(context.Context, *entities.Product) (entities.Product, error)
 }
 type productUsecase struct {
 	productRepo ProductRepository
@@ -50,9 +52,25 @@ func (a *productUsecase) Get(c context.Context, id uuid.UUID) (res entities.Prod
 	return
 }
 
+func (a *productUsecase) GetBySKU(c context.Context, sku string) (res entities.Product, err error) {
+	ctx, cancel := context.WithTimeout(c, a.ctxTimeout)
+	defer cancel()
+	res, err = a.productRepo.GetBySKU(ctx, sku)
+	return
+}
+
 func (a *productUsecase) Fetch(c context.Context, cursor string, limit int) (res []entities.Product, nextCursor string, err error) {
 	ctx, cancel := context.WithTimeout(c, a.ctxTimeout)
 	defer cancel()
 	res, nextCursor, err = a.productRepo.Fetch(ctx, cursor, limit)
+	return
+}
+
+func (a *productUsecase) Update(c context.Context, arg *entities.Product) (res entities.Product, err error) {
+	ctx, cancel := context.WithTimeout(c, a.ctxTimeout)
+	defer cancel()
+
+	arg.UpdatedAt = time.Now()
+	res, err = a.productRepo.Update(ctx, arg)
 	return
 }

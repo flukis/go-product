@@ -15,6 +15,7 @@ type ProductRepository interface {
 	GetBySKU(context.Context, string) (entities.Product, error)
 	Fetch(context.Context, string, int) ([]entities.Product, string, error)
 	GetById(context.Context, uuid.UUID) (entities.Product, error)
+	Update(context.Context, *entities.Product) (entities.Product, error)
 }
 
 type psqlProductRepository struct {
@@ -59,7 +60,9 @@ func (p *psqlProductRepository) Store(ctx context.Context, arg StoreProductParam
 
 func (p *psqlProductRepository) GetBySKU(ctx context.Context, sku string) (res entities.Product, err error) {
 	queryString := `
-		SELECT id, name, sku, description, price, stock, images, created_at, updated_at FROM products WHERE sku = $1 LIMIT 1
+		SELECT
+			id, name, sku, description, price, stock, images, created_at, updated_at
+		FROM products WHERE sku = $1 LIMIT 1
 	`
 	err = p.dbconn.GetContext(ctx, &res, queryString, sku)
 	if err == sql.ErrNoRows {
@@ -70,7 +73,9 @@ func (p *psqlProductRepository) GetBySKU(ctx context.Context, sku string) (res e
 
 func (p *psqlProductRepository) GetById(ctx context.Context, id uuid.UUID) (res entities.Product, err error) {
 	queryString := `
-		SELECT id, name, sku, description, price, stock, images, created_at, updated_at FROM products WHERE id = $1 LIMIT 1
+		SELECT
+			id, name, sku, description, price, stock, images, created_at, updated_at
+		FROM products WHERE id = $1 LIMIT 1
 	`
 	err = p.dbconn.GetContext(ctx, &res, queryString, id)
 	if err == sql.ErrNoRows {
@@ -81,7 +86,13 @@ func (p *psqlProductRepository) GetById(ctx context.Context, id uuid.UUID) (res 
 
 func (p *psqlProductRepository) Fetch(ctx context.Context, cursor string, num int) (res []entities.Product, nextCursor string, err error) {
 	queryString := `
-		SELECT id, name, sku, description, price, stock, images, created_at, updated_at FROM products WHERE created_at > $1 ORDER BY created_at LIMIT $2
+		SELECT
+			id, name, sku, description, price, stock, images, created_at, updated_at
+		FROM
+			products
+		WHERE created_at > $1
+		ORDER BY created_at
+		LIMIT $2
 	`
 	decodedCursor, err := helpers.DecodeCursor(cursor)
 	if err != nil && cursor != "" {
@@ -96,5 +107,35 @@ func (p *psqlProductRepository) Fetch(ctx context.Context, cursor string, num in
 		nextCursor = helpers.EncodeCursor(res[len(res)-1].CreatedAt)
 	}
 
+	return
+}
+
+func (p *psqlProductRepository) Update(ctx context.Context, arg *entities.Product) (res entities.Product, err error) {
+	queryString := `
+		UPDATE products
+		SET
+			name = $2,
+			sku = $3,
+			description = $4,
+			price = $5,
+			stock = $6,
+			images = $7,
+			updated_at = $8
+		WHERE
+			id = $1
+		RETURNING
+			id, name, sku, description, price, stock, images, created_at, updated_at
+	`
+	err = p.dbconn.QueryRowContext(ctx, queryString, arg.ID, arg.Name, arg.SKU, arg.Description, arg.Price, arg.Stock, arg.Images, arg.UpdatedAt).Scan(
+		&res.ID,
+		&res.Name,
+		&res.SKU,
+		&res.Description,
+		&res.Price,
+		&res.Stock,
+		&res.Images,
+		&res.CreatedAt,
+		&res.UpdatedAt,
+	)
 	return
 }
